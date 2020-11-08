@@ -122,6 +122,13 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+.idea/
+.vscode
+node_modules
+package-lock.json
+project
+venv/
 .dmypy.json
 dmypy.json
 
