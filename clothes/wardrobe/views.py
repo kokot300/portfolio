@@ -1,7 +1,11 @@
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError
 from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib.auth.models import User
+from django.contrib.auth import login, logout, authenticate
+
+# import django.views.static
 
 from .models import Institution, Donation
 
@@ -27,6 +31,23 @@ class IndexView(View):
 class LoginView(View):
     def get(self, request):
         return render(request, 'login.html', {})
+
+    def post(self, request):
+        # print(request.POST['email'])
+        # print(request.POST['password'])
+        user = authenticate(username=request.POST['email'], password=request.POST['password'])
+        # print(user)
+        if user is not None:
+            login(request, user)
+            return redirect('index')
+        else:
+            return redirect('register')
+
+
+class LogoutView(LoginRequiredMixin, View):
+    def get(self, request):
+        logout(request)
+        return redirect('index')
 
 
 class RegisterView(View):
@@ -77,7 +98,7 @@ class RegisterView(View):
             return render(request, 'register.html', ctx)
 
         try:
-            user = User.objects.create(username=request.POST['email'])
+            user = User.objects.create_user(request.POST['email'], request.POST['email'], request.POST['password'])
         except IntegrityError:
             msg = 'nie możesz utworzyć konta z tym emailem'
             ctx = {
@@ -87,15 +108,15 @@ class RegisterView(View):
 
         user.first_name = request.POST['name']
         user.last_name = request.POST['surname']
-        user.email = request.POST['email']
-        user.set_password(request.POST['password'])
-        print(f'\n\n {user.password} \n\n')
+        # user.email = request.POST['email']
+        # user.set_password(request.POST['password'])
+        # print(f'\n\n {user.password} \n\n')
         # authentication should work with user.check_password()
         user.save()
 
         return redirect('login')
 
 
-class FromView(View):
+class FromView(LoginRequiredMixin, View):
     def get(self, request):
         return render(request, 'form.html', {})

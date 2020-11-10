@@ -129,8 +129,11 @@ node_modules
 package-lock.json
 project
 venv/
+PortfolioLab_HTML_Layout-python/
 .dmypy.json
 dmypy.json
 
 # Pyre type checker
 .pyre/
+
+PortfolioLab_HTML_Layout-python.zip
