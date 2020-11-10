@@ -1,13 +1,11 @@
+from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.shortcuts import render, redirect
 from django.views import View
-from django.contrib.auth.models import User
-from django.contrib.auth import login, logout, authenticate
 
-# import django.views.static
-
-from .models import Institution, Donation
+from .models import Institution, Donation, Category
 
 
 # Create your views here.
@@ -21,9 +19,9 @@ class IndexView(View):
         ctx = {
             'institution': Institution.objects.count(),
             'bags': bags,
-            'foundations' : Institution.objects.filter(type=1),
-            'non_governmental' : Institution.objects.filter(type=2),
-            'locals' : Institution.objects.filter(type=3),
+            'foundations': Institution.objects.filter(type=1),
+            'non_governmental': Institution.objects.filter(type=2),
+            'locals': Institution.objects.filter(type=3),
         }
         return render(request, 'index.html', ctx)
 
@@ -33,10 +31,7 @@ class LoginView(View):
         return render(request, 'login.html', {})
 
     def post(self, request):
-        # print(request.POST['email'])
-        # print(request.POST['password'])
         user = authenticate(username=request.POST['email'], password=request.POST['password'])
-        # print(user)
         if user is not None:
             login(request, user)
             return redirect('index')
@@ -98,7 +93,8 @@ class RegisterView(View):
             return render(request, 'register.html', ctx)
 
         try:
-            user = User.objects.create_user(request.POST['email'], request.POST['email'], request.POST['password'])
+            user = User.objects.create_user(username=request.POST['email'], email=request.POST['email'],
+                                            password=request.POST['password'])
         except IntegrityError:
             msg = 'nie możesz utworzyć konta z tym emailem'
             ctx = {
@@ -108,10 +104,6 @@ class RegisterView(View):
 
         user.first_name = request.POST['name']
         user.last_name = request.POST['surname']
-        # user.email = request.POST['email']
-        # user.set_password(request.POST['password'])
-        # print(f'\n\n {user.password} \n\n')
-        # authentication should work with user.check_password()
         user.save()
 
         return redirect('login')
@@ -119,4 +111,40 @@ class RegisterView(View):
 
 class FromView(LoginRequiredMixin, View):
     def get(self, request):
-        return render(request, 'form.html', {})
+        categories = Category.objects.all()
+        institutions = Institution.objects.all()
+
+        ctx = {
+            'categories': categories,
+            'institutions': institutions,
+        }
+        return render(request, 'form.html', ctx)
+
+    def post(self, request):
+        try:
+            institution = Institution.objects.get(pk=request.POST['organization'])
+
+            donation = Donation.objects.create(
+                quantity=int(request.POST['bags']),
+                institution=institution,
+                address=request.POST['address'],
+                phone_number=request.POST['phone'],
+                city=request.POST['city'],
+                zip_code=request.POST['postcode'],
+                pick_up_date=request.POST['data'],
+                pick_up_time=request.POST['time'],
+                pick_up_comment=request.POST['more_info'],
+                user=request.user,
+            )
+
+            for cat in request.POST['categories']:
+                donation.categories.add(int(cat))
+            donation.save()
+            return redirect('confirmation')
+        except:
+            return redirect('form')
+
+
+class FormSubmitConfirmationView(LoginRequiredMixin, View):
+    def get(self, request):
+        return render(request, 'form-confirmation.html', {})

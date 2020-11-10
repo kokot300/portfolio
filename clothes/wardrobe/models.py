@@ -26,6 +26,9 @@ class Institution(models.Model):
     def __str__(self):
         return self.name
 
+    def type_verbose(self):
+        return Institution.TYPE_CHOICES[int(self.type)][1]
+
 
 class Donation(models.Model):
     quantity = models.IntegerField()

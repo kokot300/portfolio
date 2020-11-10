@@ -18,7 +18,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.views.generic import RedirectView
 
-from .views import IndexView, RegisterView, LoginView, LogoutView, FromView
+from .views import IndexView, RegisterView, LoginView, LogoutView, FromView, FormSubmitConfirmationView
 
 urlpatterns = [
     path('', IndexView.as_view(), name='index'),
@@ -26,6 +26,7 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('donate/', FromView.as_view(), name='form'),
+    path('donate/confirmation/', FormSubmitConfirmationView.as_view(), name='confirmation'),
 
     path('accounts/login/', RedirectView.as_view(url='/login/')),
 
