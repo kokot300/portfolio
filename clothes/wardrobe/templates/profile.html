@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}
+    <title>profil</title>
+{% endblock %}
+{% block content %}
+    <header class="header--form-page">
+
+        {% include 'navi.html' %}
+
+
+    </header>
+
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+            <li class="pure-menu-item">
+                <h3>Imię: {{ user.first_name }}</h3>
+            </li>
+            <li class="pure-menu-item">
+                <h3>Nazwisko: {{ user.last_name }}</h3>
+            </li>
+            <li class="pure-menu-item">
+                <h3>Email: {{ user.email }}</h3>
+            </li>
+        </ul>
+    </div>
+
+    <form method="post" action=".">
+        {% csrf_token %}
+        <table class="pure-table pure-table-horizontal">
+            <thead>
+            <tr>
+                <th>Worki</th>
+                <th>Dla</th>
+                <th>Kategorie</th>
+                <th>Data odbioru</th>
+                <th>Godzina odbioru</th>
+                <th>Odebrane</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for donation in donations %}
+                <tr {% if donation.is_taken is True %} style="color:grey" {% endif %}>
+                    <label for="donation_{{ donation.pk }}" class="description">
+                        <td>{{ donation.quantity }}</td>
+                        <td>{{ donation.institution }}</td>
+                        <td>{% for cat in donation.categories.all %}{{ cat }}{% endfor %}</td>
+                        <td>{{ donation.pick_up_date }}</td>
+                        <td>{{ donation.pick_up_time }}</td>
+                    </label>
+                    <td>{{ donation.is_taken }}
+
+                        {% if donation.is_taken is False %}
+                            <input class="checkbox" type="checkbox" id="donation_{{ donation.pk }}"
+                                   name="donation" value="{{ donation.pk }}">
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" class="btn">Aktulizuj</button>
+    </form>
+{% endblock %}

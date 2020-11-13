@@ -148,3 +148,21 @@ class FromView(LoginRequiredMixin, View):
 class FormSubmitConfirmationView(LoginRequiredMixin, View):
     def get(self, request):
         return render(request, 'form-confirmation.html', {})
+
+
+class ProfileView(LoginRequiredMixin, View):
+    def get(self, request):
+        user = request.user
+        donations = Donation.objects.all().filter(user=user).order_by('is_taken', 'pick_up_date', 'pick_up_time')
+        ctx = {
+            'donations': donations,
+        }
+        return render(request, 'profile.html', ctx)
+
+    def post(self, request):
+        print(request.POST)
+        for donation_id in request.POST['donation']:
+            donation = Donation.objects.get(pk=donation_id)
+            donation.is_taken = True
+            donation.save()
+        return redirect('profile')
