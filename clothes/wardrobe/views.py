@@ -1,10 +1,17 @@
+from datetime import datetime, timedelta
+
 from django.contrib.auth import login, logout, authenticate
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.shortcuts import render, redirect
+from django.urls import reverse_lazy
 from django.views import View
+from django.views.generic import FormView
+from pytz import utc
 
+from .forms import UpdateUserForm
 from .models import Institution, Donation, Category
 
 
@@ -123,26 +130,101 @@ class FromView(LoginRequiredMixin, View):
     def post(self, request):
         try:
             institution = Institution.objects.get(pk=request.POST['organization'])
+        except ObjectDoesNotExist:
+            categories = Category.objects.all()
+            institutions = Institution.objects.all()
+            msg = 'No such institution!'
+            ctx = {
+                'categories': categories,
+                'institutions': institutions,
+                'msg': msg,
+            }
+            return render(request, 'form.html', ctx)
 
+        try:
+            bags = int(request.POST['bags'])
+        except ValueError:
+            categories = Category.objects.all()
+            institutions = Institution.objects.all()
+            msg = 'Amount of bags incorrect!'
+            ctx = {
+                'categories': categories,
+                'institutions': institutions,
+                'msg': msg,
+            }
+            return render(request, 'form.html', ctx)
+
+        try:
+            phone = int(request.POST['phone'])
+        except ValueError:
+            categories = Category.objects.all()
+            institutions = Institution.objects.all()
+            msg = 'Phone must be a number!'
+            ctx = {
+                'categories': categories,
+                'institutions': institutions,
+                'msg': msg,
+            }
+            return render(request, 'form.html', ctx)
+
+        try:
+            postcode = int(request.POST['postcode'])
+        except ValueError:
+            categories = Category.objects.all()
+            institutions = Institution.objects.all()
+            msg = 'Zip code must be a number!'
+            ctx = {
+                'categories': categories,
+                'institutions': institutions,
+                'msg': msg,
+            }
+            return render(request, 'form.html', ctx)
+
+        print(type(request.POST['data']))
+        print(type(request.POST['time']))
+
+        #  address, city and comment should be always ok
+        #  user is taken from session so there is low possibility for user to mess up
+        #  only things left to validate are date and time
+        try:
             donation = Donation.objects.create(
-                quantity=int(request.POST['bags']),
+                quantity=bags,
                 institution=institution,
                 address=request.POST['address'],
-                phone_number=request.POST['phone'],
+                phone_number=phone,
                 city=request.POST['city'],
-                zip_code=request.POST['postcode'],
+                zip_code=postcode,
                 pick_up_date=request.POST['data'],
                 pick_up_time=request.POST['time'],
                 pick_up_comment=request.POST['more_info'],
                 user=request.user,
             )
-
+        except ValidationError or TypeError:
+            categories = Category.objects.all()
+            institutions = Institution.objects.all()
+            msg = 'Date and time incorrect!'
+            ctx = {
+                'categories': categories,
+                'institutions': institutions,
+                'msg': msg,
+            }
+            return render(request, 'form.html', ctx)
+        try:
             for cat in request.POST['categories']:
                 donation.categories.add(int(cat))
             donation.save()
-            return redirect('confirmation')
-        except:
-            return redirect('form')
+        except IntegrityError or TypeError:
+            categories = Category.objects.all()
+            institutions = Institution.objects.all()
+            msg = 'Categories are incorrect!'
+            ctx = {
+                'categories': categories,
+                'institutions': institutions,
+                'msg': msg,
+            }
+            return render(request, 'form.html', ctx)
+
+        return redirect('confirmation')
 
 
 class FormSubmitConfirmationView(LoginRequiredMixin, View):
@@ -166,3 +248,25 @@ class ProfileView(LoginRequiredMixin, View):
             donation.is_taken = True
             donation.save()
         return redirect('profile')
+
+
+class UpdateProfileView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+    form_class = UpdateUserForm
+    template_name = 'update_profile.html'
+    success_url = reverse_lazy('profile')
+
+    def form_valid(self, form):
+        """
+        overrides default form_valid method
+        """
+        form = UpdateUserForm(self.request.POST)
+        if form.is_valid():
+            user = self.request.user
+            user.first_name = self.request.POST['first_name']
+            user.last_name = self.request.POST['last_name']
+            user.email = self.request.POST['email']
+            user.save()
+        return super().form_valid(form)
+
+    def test_func(self):
+        return datetime.now(utc) - self.request.user.last_login <= timedelta(seconds=60)

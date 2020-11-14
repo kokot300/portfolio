@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}
+    <title>edytuj profil</title>
+{% endblock %}
+{% block content %}
+    <header class="header--form-page">
+        {% include 'navi.html' %}
+    </header>
+
+    <a href="{% url 'password_change' %}">zmień hasło</a>
+
+    <form method="post" action=".">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Zmień</button>
+    </form>
+{% endblock %}
