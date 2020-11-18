@@ -7,6 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
+from django.utils.datastructures import MultiValueDictKeyError
 from django.views import View
 from django.views.generic import FormView
 from pytz import utc
@@ -129,8 +130,23 @@ class FromView(LoginRequiredMixin, View):
 
     def post(self, request):
         try:
+            int(request.POST['organization'])
+        except MultiValueDictKeyError as e:
+            print(e)
+            categories = Category.objects.all()
+            institutions = Institution.objects.all()
+            msg = 'No such institution!'
+            ctx = {
+                'categories': categories,
+                'institutions': institutions,
+                'msg': msg,
+            }
+            return render(request, 'form.html', ctx)
+
+        try:
             institution = Institution.objects.get(pk=request.POST['organization'])
-        except ObjectDoesNotExist:
+        except ObjectDoesNotExist or MultiValueDictKeyError as e:
+            print(e)
             categories = Category.objects.all()
             institutions = Institution.objects.all()
             msg = 'No such institution!'
@@ -143,7 +159,8 @@ class FromView(LoginRequiredMixin, View):
 
         try:
             bags = int(request.POST['bags'])
-        except ValueError:
+        except ValueError as e:
+            print(e)
             categories = Category.objects.all()
             institutions = Institution.objects.all()
             msg = 'Amount of bags incorrect!'
@@ -156,7 +173,8 @@ class FromView(LoginRequiredMixin, View):
 
         try:
             phone = int(request.POST['phone'])
-        except ValueError:
+        except ValueError as e:
+            print(e)
             categories = Category.objects.all()
             institutions = Institution.objects.all()
             msg = 'Phone must be a number!'
@@ -169,7 +187,8 @@ class FromView(LoginRequiredMixin, View):
 
         try:
             postcode = int(request.POST['postcode'])
-        except ValueError:
+        except ValueError as e:
+            print(e)
             categories = Category.objects.all()
             institutions = Institution.objects.all()
             msg = 'Zip code must be a number!'
@@ -180,8 +199,8 @@ class FromView(LoginRequiredMixin, View):
             }
             return render(request, 'form.html', ctx)
 
-        print(type(request.POST['data']))
-        print(type(request.POST['time']))
+        # print(type(request.POST['data']))
+        # print(type(request.POST['time']))
 
         #  address, city and comment should be always ok
         #  user is taken from session so there is low possibility for user to mess up
@@ -199,7 +218,8 @@ class FromView(LoginRequiredMixin, View):
                 pick_up_comment=request.POST['more_info'],
                 user=request.user,
             )
-        except ValidationError or TypeError:
+        except ValidationError or TypeError as e:
+            print(e)
             categories = Category.objects.all()
             institutions = Institution.objects.all()
             msg = 'Date and time incorrect!'
@@ -209,11 +229,13 @@ class FromView(LoginRequiredMixin, View):
                 'msg': msg,
             }
             return render(request, 'form.html', ctx)
+
         try:
             for cat in request.POST['categories']:
                 donation.categories.add(int(cat))
             donation.save()
-        except IntegrityError or TypeError:
+        except IntegrityError or TypeError or MultiValueDictKeyError as e:
+            print(e)
             categories = Category.objects.all()
             institutions = Institution.objects.all()
             msg = 'Categories are incorrect!'
@@ -227,9 +249,12 @@ class FromView(LoginRequiredMixin, View):
         return redirect('confirmation')
 
 
-class FormSubmitConfirmationView(LoginRequiredMixin, View):
+class FormSubmitConfirmationView(LoginRequiredMixin, UserPassesTestMixin, View):
     def get(self, request):
         return render(request, 'form-confirmation.html', {})
+
+    def test_func(self):
+        return self.request.META.get('HTTP_REFERER') == 'http://127.0.0.1:8000/donate/'
 
 
 class ProfileView(LoginRequiredMixin, View):

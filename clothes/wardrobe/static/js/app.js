@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", function () {
             this.$next.forEach(btn => {
                 btn.addEventListener("click", e => {
                     e.preventDefault();
-                        this.currentStep++;
+                    this.currentStep++;
                     this.updateForm();
                 });
             });
@@ -209,7 +209,7 @@ document.addEventListener("DOMContentLoaded", function () {
             this.$prev.forEach(btn => {
                 btn.addEventListener("click", e => {
                     e.preventDefault();
-                        this.currentStep--;
+                    this.currentStep--;
                     this.updateForm();
                 });
             });
@@ -238,13 +238,14 @@ document.addEventListener("DOMContentLoaded", function () {
             if (this.currentStep === 3) {
                 let cats = document.getElementsByName('categories');
                 const step3 = document.getElementById('step3');
-                const institutionDiv = step3.querySelectorAll('.form-group--checkbox');
+                let institutionDiv = step3.querySelectorAll('.form-group--checkbox');
+                institutionDiv.forEach(function (e) {
+                    e.style.display = 'block';
+                });
                 institutionDiv.forEach(function (e) {
                         const inputElement = e.getElementsByClassName('organization');
                         for (let i = 0; i < cats.length; i++) {
                             if (cats[i].checked === true) {
-                                // console.log(cats[i]);
-                                // console.log(categories[cats[i].value]);
                                 if (institutions[inputElement[0].value].includes(categories[cats[i].value])) {
 
                                 } else {
