@@ -10,7 +10,9 @@
 
     <a href="{% url 'password_change' %}">zmień hasło</a>
 
-    <form method="post" action=".">
+    {{ msg }}
+
+    <form method="post" action="." autocomplete="off">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit">Zmień</button>

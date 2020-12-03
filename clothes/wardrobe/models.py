@@ -1,8 +1,26 @@
+from uuid import uuid1
+
 from django.contrib.auth.models import User
+from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 from django.db import models
+from django.db.models.signals import pre_delete
+from django.dispatch.dispatcher import receiver
 
 
 # Create your models here.
+
+@receiver(pre_delete, sender=User)
+def delete_user(sender, instance, **kwargs):
+    su = User.objects.filter(is_superuser=True)
+    if len(su) < 2:
+        raise PermissionDenied
+
+
+class UserActivation(models.Model):
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
+    activation = models.TextField(default=uuid1(), blank=True, null=True)
+
 
 class Category(models.Model):
     name = models.CharField(max_length=127)
@@ -27,7 +45,7 @@ class Institution(models.Model):
         return self.name
 
     def type_verbose(self):
-        return Institution.TYPE_CHOICES[int(self.type)][1]
+        return Institution.TYPE_CHOICES[int(self.type) - 1][1]
 
 
 class Donation(models.Model):

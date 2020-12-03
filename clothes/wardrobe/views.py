@@ -1,19 +1,21 @@
-from datetime import datetime, timedelta
+import string
 
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.mail import send_mail, BadHeaderError, EmailMessage
 from django.db import IntegrityError
-from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.utils.datastructures import MultiValueDictKeyError
 from django.views import View
 from django.views.generic import FormView
-from pytz import utc
+from django_registration.backends.activation.views import RegistrationView
 
 from .forms import UpdateUserForm
-from .models import Institution, Donation, Category
+from .models import Institution, Donation, Category, UserActivation
 
 
 # Create your views here.
@@ -32,6 +34,17 @@ class IndexView(View):
             'locals': Institution.objects.filter(type=3),
         }
         return render(request, 'index.html', ctx)
+
+    def post(self, request):
+        print(request.POST)
+        su = User.objects.filter(is_superuser=True)
+        superusers = [x.email for x in su]
+        try:
+            send_mail(recipient_list=superusers, message=request.POST.get('message'),
+                      subject=request.POST.get('name') + request.POST.get('surname'), from_email='poesiaco@gmail.com')
+        except BadHeaderError:
+            return HttpResponse('Invalid header found.')
+        return redirect('index')
 
 
 class LoginView(View):
@@ -53,7 +66,7 @@ class LogoutView(LoginRequiredMixin, View):
         return redirect('index')
 
 
-class RegisterView(View):
+class RegisterView(RegistrationView):
     def get(self, request):
         return render(request, 'register.html', {})
 
@@ -93,8 +106,50 @@ class RegisterView(View):
             }
             return render(request, 'register.html', ctx)
 
-        if len(request.POST['password2']) < 8:
+        if len(request.POST['password']) < 8:
             msg = 'Za krótkie hasło'
+            ctx = {
+                'msg': msg,
+            }
+            return render(request, 'register.html', ctx)
+
+        lower_flag = False
+        upper_flag = False
+        digit_flag = False
+        special_flag = False
+        for char in request.POST['password']:
+            if char in string.ascii_lowercase:
+                lower_flag = True
+            if char in string.ascii_uppercase:
+                upper_flag = True
+            if char in string.digits:
+                digit_flag = True
+            if char in string.punctuation:
+                special_flag = True
+
+        if not lower_flag:
+            msg = 'W haśle brakuje małej litery!'
+            ctx = {
+                'msg': msg,
+            }
+            return render(request, 'register.html', ctx)
+
+        if not upper_flag:
+            msg = 'W haśle brakuje dużej litery!'
+            ctx = {
+                'msg': msg,
+            }
+            return render(request, 'register.html', ctx)
+
+        if not digit_flag:
+            msg = 'W haśle brakuje cyfry!'
+            ctx = {
+                'msg': msg,
+            }
+            return render(request, 'register.html', ctx)
+
+        if not special_flag:
+            msg = 'W haśle brakuje znaku specjalnego!'
             ctx = {
                 'msg': msg,
             }
@@ -112,8 +167,26 @@ class RegisterView(View):
 
         user.first_name = request.POST['name']
         user.last_name = request.POST['surname']
+        user.is_active = False
         user.save()
+        activation = UserActivation(user=user)
+        activation.save()
 
+        email = EmailMessage('Aktywuj Konto', 'http://127.0.0.1:8000/activate/?code=' + str(activation.activation),
+                             to=[user.email, ])
+        email.send()
+
+        return redirect('login')
+
+
+class AccountActivationView(View):
+    def get(self, request):
+        print(request.GET)
+        activation = get_object_or_404(UserActivation, activation=request.GET['code'])
+        user = get_object_or_404(User, username=activation.user)
+        user.is_active = True
+        user.save()
+        activation.delete()
         return redirect('login')
 
 
@@ -186,7 +259,8 @@ class FromView(LoginRequiredMixin, View):
             return render(request, 'form.html', ctx)
 
         try:
-            postcode = int(request.POST['postcode'])
+            postcode = request.POST['postcode'].replace('-', '')
+            postcode = int(postcode)
         except ValueError as e:
             print(e)
             categories = Category.objects.all()
@@ -267,15 +341,22 @@ class ProfileView(LoginRequiredMixin, View):
         return render(request, 'profile.html', ctx)
 
     def post(self, request):
-        print(request.POST)
-        for donation_id in request.POST['donation']:
-            donation = Donation.objects.get(pk=donation_id)
+        donations = request.POST.getlist('donation')
+        print('\n\n\n', donations, '\n\n\n')
+        # if isinstance(request.POST['donation'], str):
+        #     donation = Donation.objects.get(pk=int(request.POST['donation']))
+        #     donation.is_taken = True
+        #     donation.save()
+        # else:
+        for donation_id in donations:
+            print('\n\n\n', donation_id, '\n\n\n')
+            donation = Donation.objects.get(pk=int(donation_id))
             donation.is_taken = True
             donation.save()
         return redirect('profile')
 
 
-class UpdateProfileView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+class UpdateProfileView(LoginRequiredMixin, FormView):
     form_class = UpdateUserForm
     template_name = 'update_profile.html'
     success_url = reverse_lazy('profile')
@@ -286,12 +367,12 @@ class UpdateProfileView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         """
         form = UpdateUserForm(self.request.POST)
         if form.is_valid():
-            user = self.request.user
-            user.first_name = self.request.POST['first_name']
-            user.last_name = self.request.POST['last_name']
-            user.email = self.request.POST['email']
-            user.save()
+            user = authenticate(username=self.request.user.email, password=self.request.POST['password'])
+            if user is not None:
+                user.first_name = self.request.POST['first_name']
+                user.last_name = self.request.POST['last_name']
+                user.email = self.request.POST['email']
+                user.save()
+            else:
+                return render(self.request, 'update_profile.html', {'msg': 'dane nieprawidłowe!'})
         return super().form_valid(form)
-
-    def test_func(self):
-        return datetime.now(utc) - self.request.user.last_login <= timedelta(seconds=60)

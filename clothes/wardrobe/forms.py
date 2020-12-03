@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.forms import ModelForm
+from django.forms import ModelForm, PasswordInput
 
 
 class UpdateUserForm(ModelForm):
@@ -11,3 +11,4 @@ class UpdateUserForm(ModelForm):
             'email',
             'password',
         ]
+        widgets = {'password': PasswordInput(attrs={'autocomplete': "new-password", }), }
